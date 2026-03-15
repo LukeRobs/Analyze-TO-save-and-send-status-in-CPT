@@ -1,0 +1,26 @@
+# Env / secrets
+.env
+*service-account*.json
+*credentials*.json
+*-key.json
+
+# Generated data files (large, rebuilt from spreadsheet)
+/data.js
+/data_daily.js
+
+# Raw cache files
+*.json
+!package.json
+!vercel.json
+
+# Node
+node_modules/
+
+# Logs / local scripts
+server.log
+server.err
+start.bat
+*.log
+
+# Claude internal
+.claude/
