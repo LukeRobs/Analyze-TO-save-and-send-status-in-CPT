@@ -20,7 +20,7 @@ async function getServiceAccountToken(sa) {
   const hdr = b64url(Buffer.from(JSON.stringify({ alg:'RS256', typ:'JWT' })));
   const pay = b64url(Buffer.from(JSON.stringify({
     iss: client_email,
-    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600, iat: now,
   })));
