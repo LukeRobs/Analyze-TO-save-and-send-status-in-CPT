@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/packed_ontime_analise.html" }
+    { "source": "/", "destination": "/dashboard.html" }
   ],
   "headers": [
     {
