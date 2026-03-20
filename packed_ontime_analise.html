@@ -119,6 +119,18 @@
     font-family:'Fira Code',monospace; font-weight:700; }
   .ns-zero  { background:rgba(16,185,129,0.1); color:var(--green); }
   .ns-some  { background:rgba(239,68,68,0.15); color:var(--red); }
+
+  /* Tabela responsiva com scroll horizontal */
+  .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .table-scroll table { min-width:900px; }
+  .table-scroll::-webkit-scrollbar { height:5px; }
+  .table-scroll::-webkit-scrollbar-track { background:rgba(255,255,255,0.04); border-radius:4px; }
+  .table-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+
+  /* Sticky primeira coluna na tabela */
+  .table-scroll thead th:first-child,
+  .table-scroll tbody td:first-child { position:sticky; left:0; background:var(--card); z-index:1; }
+  .table-scroll thead th:first-child { background:var(--card); }
 </style>
 </head>
 <body>
@@ -219,6 +231,7 @@
   <!-- VOLUME POR PACKED DAY -->
   <p class="section-title">Volume por Packed Day</p>
   <div class="panel" style="margin-bottom:24px">
+    <div class="table-scroll">
     <table>
       <thead>
         <tr>
@@ -231,11 +244,14 @@
           <th class="right" title="Não enviadas com Diff 16–30min">NE 16–30</th>
           <th class="right" title="Não enviadas com Diff 31min–1h">NE 31–1h</th>
           <th class="right" title="Não enviadas com Diff 1h–2h">NE 1–2h</th>
+          <th class="right" title="Não enviadas com Diff acima de 2h">NE +2h</th>
+          <th class="right" title="Não enviadas sem Diff (CPT indisponível ou em aberto)">NE s/Diff</th>
           <th>Taxa Envio</th>
         </tr>
       </thead>
       <tbody id="day-tbody"></tbody>
     </table>
+    </div>
 
     <div style="padding-top:16px;border-top:1px solid var(--border);margin-top:20px;">
       <div class="bar-chart" id="bar-chart"></div>
@@ -248,7 +264,8 @@
     Fonte: Planilha Base (via Google Sheets API) &nbsp;|&nbsp;
     <strong style="color:var(--green)">transporting_datetime</strong> = TO enviada (salva) &nbsp;|&nbsp;
     <strong style="color:var(--amber)">Diff</strong> = packed_datetime → estimated_cpt_datetime &nbsp;|&nbsp;
-    Colunas NE = Não Enviadas por faixa de Diff
+    Colunas NE = Não Enviadas por faixa de Diff &nbsp;|&nbsp;
+    <strong style="color:var(--muted)">NE s/Diff</strong> = sem CPT definido ou em aberto
   </div>
 
 </div><!-- #app -->
@@ -377,6 +394,8 @@ function render(d) {
       <td class="td-right">${nsBadge(dd.d16a30.notSent)}</td>
       <td class="td-right">${nsBadge(dd.d31a60.notSent)}</td>
       <td class="td-right">${nsBadge(dd.d1a2h.notSent)}</td>
+      <td class="td-right">${nsBadge(dd.dmais2h.notSent)}</td>
+      <td class="td-right">${nsBadge(Math.max(0, dd.notSent - dd.d0a15.notSent - dd.d16a30.notSent - dd.d31a60.notSent - dd.d1a2h.notSent - dd.dmais2h.notSent))}</td>
       <td>
         <div class="bar-wrap">
           <div class="bar-track"><div class="bar-fill" style="width:${tRate};background:${barColor}"></div></div>
