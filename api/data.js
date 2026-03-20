@@ -3,7 +3,7 @@
 // Set GOOGLE_SERVICE_ACCOUNT (base64 JSON) or SHEETS_API_KEY in Vercel env vars.
 
 const crypto         = require('crypto');
-const SPREADSHEET_ID = '1Sk16vRNBUsQitL3cRUSIH86SyfQpxV9t08UW2YrSdmQ';
+const SPREADSHEET_ID = '19SX6rQM12Rgz52hbGKC9BmopGMXT4aq87K0w2WMZ4sA';
 const RANGE          = 'Daily!A1:Q3000';
 
 // ── Service Account JWT ───────────────────────────────────────────────
