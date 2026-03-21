@@ -124,7 +124,7 @@
 
   /* Tabela responsiva */
   .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .table-scroll table { min-width:860px; }
+  .table-scroll table { min-width:680px; }
   .table-scroll::-webkit-scrollbar { height:5px; }
   .table-scroll::-webkit-scrollbar-track { background:rgba(255,255,255,0.04); border-radius:4px; }
   .table-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
@@ -251,11 +251,6 @@
       <div class="kpi-value" id="kpi-pacotes">—</div>
       <div class="kpi-sub">Σ pacotes no período</div>
     </div>
-    <div class="kpi-card" style="--accent:var(--purple)">
-      <div class="kpi-label">CPT Indisponível</div>
-      <div class="kpi-value" id="kpi-cptna">—</div>
-      <div class="kpi-sub"><b id="kpi-cptna-pct" style="color:var(--purple)">—</b> sem CPT definido</div>
-    </div>
   </div>
 
   <!-- ANÁLISE POR DIFF + TABELA ENVIADA vs NÃO ENVIADA -->
@@ -305,13 +300,10 @@
             <th class="right">Total TOs</th>
             <th class="right">Enviadas</th>
             <th class="right">Não Env.</th>
-            <th class="right">CPT N/A</th>
-            <th class="right" title="Não enviadas — Diff 0 a 15min">NE 0–15</th>
-            <th class="right" title="Não enviadas — Diff 16 a 30min">NE 16–30</th>
-            <th class="right" title="Não enviadas — Diff 31min a 1h">NE 31–1h</th>
-            <th class="right" title="Não enviadas — Diff 1h a 2h">NE 1–2h</th>
-            <th class="right" title="Não enviadas — Diff acima de 2h">NE +2h</th>
-            <th class="right" title="Não enviadas sem Diff (CPT indisponível ou em aberto)">NE s/Diff</th>
+            <th class="right" title="Não enviadas — 0 a 15min até CPT">NE 0–15</th>
+            <th class="right" title="Não enviadas — 16 a 30min até CPT">NE 16–30</th>
+            <th class="right" title="Não enviadas — 31min a 1h até CPT">NE 31–1h</th>
+            <th class="right" title="Não enviadas — 1h a 2h até CPT">NE 1–2h</th>
             <th>Taxa Envio</th>
           </tr>
         </thead>
@@ -332,8 +324,8 @@
     SoC_PE · Jaboatão dos Guararapes &nbsp;|&nbsp;
     Fonte: Planilha Base (via Google Sheets API) &nbsp;|&nbsp;
     <strong style="color:var(--green)">transporting_datetime</strong> = TO enviada &nbsp;|&nbsp;
-    <strong style="color:var(--amber)">Diff</strong> = packed → estimated_cpt &nbsp;|&nbsp;
-    <strong style="color:var(--muted)">NE s/Diff</strong> = sem CPT definido ou em aberto
+    <strong style="color:var(--amber)">minutos_ate_cpt</strong> = minutos entre packed e CPT estimado &nbsp;|&nbsp;
+    Colunas NE = Não enviadas por faixa de tempo
   </div>
 
 </div><!-- #app -->
@@ -345,11 +337,10 @@ const isoDay = d => d.toISOString().substring(0, 10);
 
 // Buckets
 const BUCKETS = [
-  { key:'d0a15',   label:'0 – 15 min',  sub:'Packed muito próximo ao CPT',      pillCls:'pill-red',    color:'var(--red)'    },
-  { key:'d16a30',  label:'16 – 30 min', sub:'Janela crítica antes do CPT',       pillCls:'pill-amber',  color:'var(--amber)'  },
-  { key:'d31a60',  label:'31 min – 1h', sub:'Janela intermediária antes do CPT', pillCls:'pill-blue',   color:'var(--blue)'   },
-  { key:'d1a2h',   label:'1h – 2h',     sub:'Boa antecedência ao CPT',           pillCls:'pill-teal',   color:'var(--teal)'   },
-  { key:'dmais2h', label:'Mais de 2h',  sub:'Packed com grande antecedência',    pillCls:'pill-purple', color:'var(--purple)' },
+  { key:'d0a15',  label:'0 – 15 min',  sub:'Packed muito próximo ao CPT',      pillCls:'pill-red',   color:'var(--red)'   },
+  { key:'d16a30', label:'16 – 30 min', sub:'Janela crítica antes do CPT',       pillCls:'pill-amber', color:'var(--amber)' },
+  { key:'d31a60', label:'31 min – 1h', sub:'Janela intermediária antes do CPT', pillCls:'pill-blue',  color:'var(--blue)'  },
+  { key:'d1a2h',  label:'1h – 2h',     sub:'Boa antecedência ao CPT',           pillCls:'pill-teal',  color:'var(--teal)'  },
 ];
 
 // ── Estado global ─────────────────────────────────────────────────────
@@ -404,8 +395,8 @@ function filterAndAggregate(raw) {
 
   const eb = () => ({ total:0, sent:0, notSent:0 });
   const agg = {
-    total:0, totalSent:0, totalNotSent:0, totalCptNA:0, totalQtdPacotes:0,
-    buckets: { d0a15:eb(), d16a30:eb(), d31a60:eb(), d1a2h:eb(), dmais2h:eb() },
+    total:0, totalSent:0, totalNotSent:0, totalQtdPacotes:0,
+    buckets: { d0a15:eb(), d16a30:eb(), d31a60:eb(), d1a2h:eb() },
     days, byDay: raw.byDay, generatedAt: raw.generatedAt,
   };
 
@@ -414,7 +405,6 @@ function filterAndAggregate(raw) {
     agg.total           += d.total;
     agg.totalSent       += d.sent;
     agg.totalNotSent    += d.notSent;
-    agg.totalCptNA      += d.cptNA;
     agg.totalQtdPacotes += d.qtdPacotes;
     BUCKETS.forEach(cfg => {
       agg.buckets[cfg.key].total   += d[cfg.key].total;
@@ -493,8 +483,6 @@ function render(d) {
   document.getElementById('kpi-notsent').textContent     = fmt(d.totalNotSent);
   document.getElementById('kpi-notsent-pct').textContent = pct(d.totalNotSent, d.total);
   document.getElementById('kpi-pacotes').textContent     = fmt(d.totalQtdPacotes);
-  document.getElementById('kpi-cptna').textContent       = fmt(d.totalCptNA);
-  document.getElementById('kpi-cptna-pct').textContent   = pct(d.totalCptNA, d.total);
 
   // Empty states
   document.getElementById('empty-chart').style.display = empty ? 'block' : 'none';
@@ -522,7 +510,7 @@ function render(d) {
   // Tabela por dia
   const maxVol = empty ? 1 : Math.max(...days.map(day => d.byDay[day].total), 1);
   document.getElementById('day-tbody').innerHTML = empty
-    ? `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px">Nenhum dado no período selecionado</td></tr>`
+    ? `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">Nenhum dado no período selecionado</td></tr>`
     : days.map(day => {
         const dd       = d.byDay[day];
         const lbl      = day.slice(5,10).split('-').reverse().join('/');
@@ -530,9 +518,6 @@ function render(d) {
         const tRate    = pct(dd.sent, dd.total);
         const rateNum  = dd.total > 0 ? dd.sent / dd.total : 0;
         const barColor = rateNum >= 0.99 ? 'var(--green)' : rateNum >= 0.90 ? 'var(--amber)' : 'var(--red)';
-        const noDiffNS = Math.max(0,
-          dd.notSent - dd.d0a15.notSent - dd.d16a30.notSent
-          - dd.d31a60.notSent - dd.d1a2h.notSent - dd.dmais2h.notSent);
         return `<tr>
           <td class="mono" style="color:#fff;font-weight:600">
             ${lbl}/2026${isToday?' <span style="font-size:10px;color:var(--amber)">●em aberto</span>':''}
@@ -540,13 +525,10 @@ function render(d) {
           <td class="td-right mono">${fmt(dd.total)}</td>
           <td class="td-right mono" style="color:var(--green)">${fmt(dd.sent)}</td>
           <td class="td-right mono" style="color:${dd.notSent>0?'var(--red)':'var(--muted)'}">${fmt(dd.notSent)}</td>
-          <td class="td-right mono" style="color:${dd.cptNA>0?'var(--purple)':'var(--muted)'}">${fmt(dd.cptNA)}</td>
           <td class="td-right">${nsBadge(dd.d0a15.notSent)}</td>
           <td class="td-right">${nsBadge(dd.d16a30.notSent)}</td>
           <td class="td-right">${nsBadge(dd.d31a60.notSent)}</td>
           <td class="td-right">${nsBadge(dd.d1a2h.notSent)}</td>
-          <td class="td-right">${nsBadge(dd.dmais2h.notSent)}</td>
-          <td class="td-right">${nsBadge(noDiffNS)}</td>
           <td>
             <div class="bar-wrap">
               <div class="bar-track"><div class="bar-fill" style="width:${tRate};background:${barColor}"></div></div>

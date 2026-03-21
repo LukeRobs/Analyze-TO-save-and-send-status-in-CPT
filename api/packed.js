@@ -1,9 +1,9 @@
 // Vercel Serverless Function — /api/packed
-// Packed On Time analysis: reads Base!A1:L from the packed sheet
+// Packed On Time analysis: reads Base!A1:J from the packed sheet
 
 const crypto         = require('crypto');
 const SPREADSHEET_ID = '19SX6rQM12Rgz52hbGKC9BmopGMXT4aq87K0w2WMZ4sA';
-const RANGE          = 'Base!A1:L';
+const RANGE          = 'Base!A1:J';
 
 // ── Service Account JWT ───────────────────────────────────────────────
 let saToken = null, saTokenExp = 0;
@@ -41,15 +41,14 @@ async function getServiceAccountToken(sa) {
 // ── Data Processing ───────────────────────────────────────────────────
 // Columns: 0=to_id, 1=station_name, 2=destino, 3=received_datetime,
 // 4=packed_datetime, 5=transporting_datetime, 6=estimated_cpt_datetime,
-// 7=qtd_pacotes, 8=target_process, 9=minutos_ate_cpt, 10=packed_day, 11=cpt_status
+// 7=qtd_pacotes, 8=packed_day, 9=minutos_ate_cpt
 
 function diffBucket(minutes) {
   if (minutes === null || isNaN(minutes) || minutes < 0) return null;
   if (minutes <= 15)  return 'd0a15';
   if (minutes <= 30)  return 'd16a30';
   if (minutes <= 60)  return 'd31a60';
-  if (minutes <= 120) return 'd1a2h';
-  return 'dmais2h';
+  return 'd1a2h'; // 61 min+ entra no último bucket
 }
 
 function emptyBucket() { return { total: 0, sent: 0, notSent: 0 }; }
@@ -59,42 +58,37 @@ function processData(raw) {
 
   const byDay   = {};
   const buckets = {
-    d0a15:   emptyBucket(),
-    d16a30:  emptyBucket(),
-    d31a60:  emptyBucket(),
-    d1a2h:   emptyBucket(),
-    dmais2h: emptyBucket(),
+    d0a15:  emptyBucket(),
+    d16a30: emptyBucket(),
+    d31a60: emptyBucket(),
+    d1a2h:  emptyBucket(),
   };
-  let totalSent = 0, totalNotSent = 0;
-  let totalCptNA = 0, totalQtdPacotes = 0;
+  let totalSent = 0, totalNotSent = 0, totalQtdPacotes = 0;
 
   rows.forEach(r => {
-    const packedDay = (r[10] || '').substring(0, 10);
+    const packedDay = (r[8] || '').substring(0, 10);
     if (!packedDay || packedDay.length < 10) return;
 
     const sent       = !!(r[5] && r[5].trim() !== '');
-    const status     = r[11] || '';
     const diffMin    = r[9] !== undefined && r[9] !== '' ? parseFloat(r[9]) : null;
     const bucket     = diffBucket(diffMin);
     const qtdPacotes = parseInt(r[7]) || 0;
 
     if (!byDay[packedDay]) byDay[packedDay] = {
       total: 0, sent: 0, notSent: 0,
-      cptNA: 0, qtdPacotes: 0,
-      d0a15:   emptyBucket(),
-      d16a30:  emptyBucket(),
-      d31a60:  emptyBucket(),
-      d1a2h:   emptyBucket(),
-      dmais2h: emptyBucket(),
+      qtdPacotes: 0,
+      d0a15:  emptyBucket(),
+      d16a30: emptyBucket(),
+      d31a60: emptyBucket(),
+      d1a2h:  emptyBucket(),
     };
 
     const d = byDay[packedDay];
     d.total++;
-    d.qtdPacotes += qtdPacotes;
+    d.qtdPacotes    += qtdPacotes;
     totalQtdPacotes += qtdPacotes;
 
     if (sent) { d.sent++; totalSent++; } else { d.notSent++; totalNotSent++; }
-    if (status === 'CPT_NOT_AVAILABLE') { d.cptNA++; totalCptNA++; }
 
     if (bucket) {
       d[bucket].total++;
@@ -107,7 +101,7 @@ function processData(raw) {
   const total = totalSent + totalNotSent;
   return {
     total, totalSent, totalNotSent,
-    totalCptNA, totalQtdPacotes,
+    totalQtdPacotes,
     buckets, byDay,
     days: Object.keys(byDay).sort(),
     generatedAt: Date.now(),
